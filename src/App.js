@@ -149,10 +149,9 @@ class App extends React.Component {
         }))
       }, 1000)
 
- this.setState(({ tasks }) => ({
-   tasks: tasks.map((t) => (t.id === id ? { ...t, isTimerRunning: true } : t)),
-}))
-
+      this.setState(({ tasks }) => ({
+        tasks: tasks.map((t) => (t.id === id ? { ...t, isTimerRunning: true } : t)),
+      }))
     }
   }
 

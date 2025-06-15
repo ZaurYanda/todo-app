@@ -1,95 +1,148 @@
-import React from 'react'
-
+// App.js
+import React, { useState, useRef, useCallback } from 'react'
 import './index.css'
 
 import NewTaskForm from './Components/NewTaskForm/NewTaskForm'
 import TaskList from './Components/TaskList/TaskList'
 import Footer from './Components/Footer/Footer'
 
-class App extends React.Component {
-  constructor(props) {
-    super(props)
-    this.maxId = 100
-  }
+let maxId = 100
 
-  state = {
-    tasks: [],
-    filter: 'all',
-  }
+function App() {
+  const [tasks, setTasks] = useState([])
+  const [filter, setFilter] = useState('all')
+  const timerIds = useRef({})
 
-  toggleTask = (id) => {
-    this.setState(({ tasks }) => ({
-      tasks: tasks.map((task) => (task.id === id ? { ...task, completed: !task.completed } : task)),
-    }))
-  }
+  const toggleTask = useCallback((id) => {
+    setTasks((prevTasks) => {
+      const updatedTasks = prevTasks.map((task) => {
+        if (task.id === id) {
+          const isNowCompleted = !task.completed
 
-  deleteTask = (id) => {
-    this.setState(({ tasks }) => ({
-      tasks: tasks.filter((task) => task.id !== id),
-    }))
-  }
-  addTask = (text) => {
+          if (isNowCompleted && timerIds.current[id]) {
+            clearInterval(timerIds.current[id])
+            delete timerIds.current[id]
+          }
+
+          if (!isNowCompleted && task.timeSpent > 0) {
+            if (timerIds.current[id]) {
+              clearInterval(timerIds.current[id])
+            }
+            timerIds.current[id] = setInterval(() => {
+              setTasks((tasks) =>
+                tasks.map((t) => {
+                  if (t.id === id && t.isTimerRunning) {
+                    const newTime = t.timeSpent - 1
+                    if (newTime <= 0) {
+                      clearInterval(timerIds.current[id])
+                      delete timerIds.current[id]
+                      return { ...t, timeSpent: 0, isTimerRunning: false }
+                    }
+                    return { ...t, timeSpent: newTime }
+                  }
+                  return t
+                })
+              )
+            }, 1000)
+          }
+
+          return {
+            ...task,
+            completed: isNowCompleted,
+            isTimerRunning: !isNowCompleted && task.timeSpent > 0,
+          }
+        }
+        return task
+      })
+      return updatedTasks
+    })
+  }, [])
+
+  const deleteTask = useCallback((id) => {
+    setTasks((prev) => prev.filter((task) => task.id !== id))
+  }, [])
+
+  const addTask = useCallback((text, initialTime) => {
     const newItem = {
       title: text,
       completed: false,
-      id: this.maxId++,
+      id: maxId++,
       created: new Date().toISOString(),
+      timeSpent: initialTime,
+      isTimerRunning: false,
     }
+    setTasks((prev) => [...prev, newItem])
+  }, [])
 
-    this.setState(({ tasks }) => {
-      const newArr = [...tasks, newItem]
-      return {
-        tasks: newArr,
-      }
-    })
-  }
+  const onFilterSelect = useCallback((filter) => {
+    setFilter(filter)
+  }, [])
 
-  onFilterSelect = (filter) => {
-    this.setState({ filter })
-  }
-
-  filter(items, filter) {
+  const filterTasks = useCallback((items, filter) => {
     switch (filter) {
-      case 'all':
-        return items
       case 'active':
         return items.filter((item) => !item.completed)
       case 'completed':
-        return items.filter((el) => el.completed)
+        return items.filter((item) => item.completed)
       default:
         return items
     }
-  }
+  }, [])
 
-  clearCompleted = () => {
-    this.setState(({ tasks }) => ({
-      tasks: tasks.filter((task) => !task.completed),
-    }))
-  }
+  const clearCompleted = useCallback(() => {
+    setTasks((prev) => prev.filter((task) => !task.completed))
+  }, [])
 
-  render() {
-    const completedCount = this.state.tasks.filter((el) => !el.completed).length
+  const startPauseTimer = useCallback(
+    (id) => {
+      const task = tasks.find((t) => t.id === id)
+      if (!task) return
 
-    return (
-      <section className="todoapp">
-        <NewTaskForm addTask={this.addTask} />
-        <section className="main">
-          <TaskList
-            tasks={this.filter(this.state.tasks, this.state.filter)}
-            toggleTask={this.toggleTask}
-            deleteTask={this.deleteTask}
-          />
-        </section>
+      if (task.isTimerRunning) {
+        clearInterval(timerIds.current[id])
+        delete timerIds.current[id]
+        setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, isTimerRunning: false } : t)))
+      } else {
+        timerIds.current[id] = setInterval(() => {
+          setTasks((prev) =>
+            prev.map((t) => {
+              if (t.id === id) {
+                const newTime = t.timeSpent - 1
+                if (newTime <= 0) {
+                  clearInterval(timerIds.current[id])
+                  delete timerIds.current[id]
+                  return { ...t, timeSpent: 0, isTimerRunning: false }
+                }
+                return { ...t, timeSpent: newTime }
+              }
+              return t
+            })
+          )
+        }, 1000)
 
-        <Footer
-          filter={this.state.filter}
-          count={completedCount}
-          onFilterSelect={this.onFilterSelect}
-          clearCompleted={this.clearCompleted}
+        setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, isTimerRunning: true } : t)))
+      }
+    },
+    [tasks]
+  )
+
+  const visibleTasks = filterTasks(tasks, filter)
+  const completedCount = tasks.filter((el) => !el.completed).length
+
+  return (
+    <section className="todoapp">
+      <NewTaskForm addTask={addTask} />
+      <section className="main">
+        <TaskList
+          tasks={visibleTasks}
+          toggleTask={toggleTask}
+          deleteTask={deleteTask}
+          startPauseTimer={startPauseTimer}
         />
       </section>
-    )
-  }
+      <Footer filter={filter} count={completedCount} onFilterSelect={onFilterSelect} clearCompleted={clearCompleted} />
+    </section>
+  )
 }
 
 export default App

@@ -1,53 +1,49 @@
-import React from 'react'
-import './NewTaskForm.css'
+import React, { useState } from 'react'
 import PropTypes from 'prop-types'
-class NewTaskForm extends React.Component {
-  // constructor() {
-  //   super();
-  //   this.state = {
-  //     inputValue: '',
+import './NewTaskForm.css'
 
-  //   }
-  // }
+function NewTaskForm({ addTask }) {
+  const [value, setValue] = useState('')
+  const [minutes, setMinutes] = useState('')
+  const [seconds, setSeconds] = useState('')
 
-  state = {
-    value: '',
-  }
-
-  onLabelChange = (e) => {
-    this.setState({
-      value: e.target.value,
-    })
-  }
-
-  onSubmit = (e) => {
+  const onSubmit = (e) => {
     e.preventDefault()
-    const emptySpace = this.state.value.trim()
-    if (!emptySpace) return
-    this.props.addTask(this.state.value)
-    this.setState({
-      value: '',
-    })
+    const taskText = value.trim()
+    if (!taskText) return
+
+    const totalSeconds = parseInt(minutes || '0', 10) * 60 + parseInt(seconds || '0', 10)
+    addTask(taskText, totalSeconds)
+
+    setValue('')
+    setMinutes('')
+    setSeconds('')
   }
 
-  render() {
-    return (
-      <form className="header" onSubmit={this.onSubmit}>
-        <h1>todos</h1>
-        <input
-          className="new-todo"
-          placeholder="What needs to be done?"
-          autoFocus
-          onChange={this.onLabelChange}
-          value={this.state.value}
-        />
-      </form>
-    )
-  }
-}
-
-NewTaskForm.defaultProps = {
-  addTask: () => {},
+  return (
+    <form className="new-todo-form" onSubmit={onSubmit}>
+      <input
+        className="new-todo"
+        placeholder="Task"
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+      />
+      <input
+        className="new-todo-form__timer"
+        placeholder="Min"
+        value={minutes}
+        onChange={(e) => setMinutes(e.target.value)}
+      />
+      <input
+        className="new-todo-form__timer"
+        placeholder="Sec"
+        value={seconds}
+        onChange={(e) => setSeconds(e.target.value)}
+      />
+      <button type="submit"></button>
+    </form>
+  )
 }
 
 NewTaskForm.propTypes = {
